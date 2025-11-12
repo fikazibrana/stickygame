@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>Stick Fight</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Arial', sans-serif;
+      background: #87CEEB;
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      height: 100vh;
+      width: 100vw;
+    }
+    #game-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: linear-gradient(to bottom, #87CEEB 0%, #E0F7FA 70%, #8BC34A 100%);
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+    }
+    #ui {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .player-info {
+      width: 45%;
+    }
+    .label {
+      color: white;
+      font-weight: bold;
+      text-shadow: 1px 1px 2px #000;
+      font-size: 14px;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+    .health-bar {
+      height: 16px;
+      background: #333;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .health {
+      height: 100%;
+      width: 100%;
+      background: #4CAF50;
+      transition: width 0.3s ease;
+    }
+    .health.red { background: #F44336; }
+
+    #controls {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      display: flex;
+      gap: 12px;
+      z-index: 10;
+    }
+    .btn {
+      width: 64px;
+      height: 64px;
+      background: rgba(0,0,0,0.65);
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 11px;
+      touch-action: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      backdrop-filter: blur(4px);
+    }
+    .btn:active {
+      transform: scale(0.9);
+    }
+
+    #joystick-container {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      width: 110px;
+      height: 110px;
+      z-index: 10;
+    }
+    #joystick-base {
+      width: 110px;
+      height: 110px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 50%;
+      position: relative;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    #joystick-knob {
+      width: 44px;
+      height: 44px;
+      background: rgba(255,255,255,0.9);
+      border-radius: 50%;
+      position: absolute;
+      top: 33px;
+      left: 33px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      transition: none;
+    }
+
+    #game-over {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.85);
+      color: white;
+      padding: 20px 30px;
+      border-radius: 16px;
+      text-align: center;
+      font-size: 20px;
+      display: none;
+      z-index: 20;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+    }
+    #restart-btn {
+      margin-top: 12px;
+      padding: 10px 24px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    /* Responsif untuk landscape */
+    @media (orientation: landscape) and (max-height: 500px) {
+      #controls { bottom: 10px; left: 10px; gap: 8px; }
+      .btn { width: 50px; height: 50px; font-size: 9px; }
+      #joystick-container { bottom: 10px; right: 10px; width: 90px; height: 90px; }
+      #joystick-base { width: 90px; height: 90px; }
+      #joystick-knob { width: 36px; height: 36px; top: 27px; left: 27px; }
+      .label { font-size: 12px; }
+      .health-bar { height: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- UI -->
+    <div id="ui">
+      <div class="player-info">
+        <div class="label">Player 1</div>
+        <div class="health-bar"><div id="p1-health" class="health"></div></div>
+      </div>
+      <div class="player-info">
+        <div class="label">Player 2</div>
+        <div class="health-bar"><div id="p2-health" class="health red"></div></div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div id="controls">
+      <div class="btn" id="punch-btn">
+        <div style="font-size:18px;">Fist</div>
+        <div>PUNCH</div>
+      </div>
+      <div class="btn" id="kick-btn">
+        <div style="font-size:18px;">Foot</div>
+        <div>KICK</div>
+      </div>
+    </div>
+
+    <!-- Joystick -->
+    <div id="joystick-container">
+      <div id="joystick-base">
+        <div id="joystick-knob"></div>
+      </div>
+    </div>
+
+    <!-- Game Over -->
+    <div id="game-over">
+      <div id="winner-text"></div>
+      <button id="restart-btn">Main Lagi</button>
+    </div>
+  </div>
+
+  <!-- Audio -->
+  <audio id="punch-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-fast-punch-2152.mp3" preload="auto"></audio>
+  <audio id="kick-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-martial-arts-fast-punch-2048.mp3" preload="auto"></audio>
+  <audio id="hit-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-punch-whoosh-2154.mp3" preload="auto"></audio>
+
+  <script>
+    // Canvas
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      game.player2.x = canvas.width - 180;
+      game.player1.x = Math.min(game.player1.x, canvas.width - 100);
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 100));
+
+    // Audio
+    const punchSound = document.getElementById('punch-sound');
+    const kickSound = document.getElementById('kick-sound');
+    const hitSound = document.getElementById('hit-sound');
+
+    // Game state
+    const game = {
+      player1: { x: 150, y: 0, health: 100, facing: 'right', punching: false, kicking: false, punchFrame: 0, kickFrame: 0 },
+      player2: { x: 0, y: 0, health: 100, facing: 'left', punching: false, kicking: false, punchFrame: 0, kickFrame: 0 },
+      joystick: { active: false, x: 0, y: 0, angle: 0 },
+      particles: [],
+      gameOver: false,
+      groundY: 0
+    };
+
+    game.groundY = canvas.height - 120;
+    game.player1.y = game.groundY;
+    game.player2.y = game.groundY;
+    game.player2.x = canvas.width - 180;
+
+    // Particle system
+    class Particle {
+      constructor(x, y, vx, vy, life, color) {
+        this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+        this.life = life; this.maxLife = life; this.color = color;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy += 0.5;
+        this.life--;
+      }
+      draw() {
+        const alpha = this.life / this.maxLife;
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // Draw stickman with animation
+    function drawStickman(p, color) {
+      const { x, y, facing, punching, kicking, punchFrame, kickFrame } = p;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+
+      const headY = y - 80;
+      const bodyY = y - 10;
+
+      // Head
+      ctx.beginPath();
+      ctx.arc(x, headY, 22, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Body
+      ctx.beginPath();
+      ctx.moveTo(x, headY + 22);
+      ctx.lineTo(x, bodyY);
+      ctx.stroke();
+
+      // Arms
+      let armAngle = 0.3;
+      if (punching && punchFrame > 0) {
+        armAngle = facing === 'right' ? -1.8 + punchFrame * 0.06 : 1.8 - punchFrame * 0.06;
+      }
+      const armX = facing === 'right' ? x + 12 : x - 12;
+      ctx.beginPath();
+      ctx.moveTo(x, y - 45);
+      ctx.lineTo(armX + (facing === 'right' ? 35 : -35) * Math.cos(armAngle),
+                 y - 45 + 35 * Math.sin(armAngle));
+      ctx.stroke();
+
+      // Other arm
+      ctx.beginPath();
+      ctx.moveTo(x, y - 45);
+      ctx.lineTo(armX - (facing === 'right' ? 25 : -25), y - 25);
+      ctx.stroke();
+
+      // Legs
+      let legKick = 0;
+      if (kicking && kickFrame > 0) {
+        legKick = facing === 'right' ? 40 - kickFrame : -40 + kickFrame;
+      }
+      ctx.beginPath();
+      ctx.moveTo(x, bodyY);
+      ctx.lineTo(x - 20, y + 20);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(x, bodyY);
+      ctx.lineTo(x + 20 + legKick, y + 25);
+      ctx.stroke();
+    }
+
+    // Update health
+    function updateHealth() {
+      document.getElementById('p1-health').style.width = game.player1.health + '%';
+      document.getElementById('p2-health').style.width = game.player2.health + '%';
+    }
+
+    // Hit detection
+    function checkHit(attacker, defender, range = 90) {
+      const dist = Math.abs(attacker.x - defender.x);
+      const attacking = (attacker.punching && attacker.punchFrame > 5) || (attacker.kicking && attacker.kickFrame > 8);
+      return dist < range && attacking;
+    }
+
+    // Create impact particles
+    function createImpact(x, y, facing) {
+      const count = 8;
+      for (let i = 0; i < count; i++) {
+        const angle = facing === 'right' ? Math.random() * 0.8 - 0.4 : Math.PI + Math.random() * 0.8 - 0.4;
+        const speed = 3 + Math.random() * 5;
+        game.particles.push(new Particle(
+          x + (facing === 'right' ? 30 : -30),
+          y - 50,
+          Math.cos(angle) * speed,
+          Math.sin(angle) * speed - 2,
+          20 + Math.random() * 15,
+          '#ff9800'
+        ));
+      }
+      hitSound.currentTime = 0;
+      hitSound.play();
+    }
+
+    // Game loop
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Ground
+      ctx.fillStyle = '#8BC34A';
+      ctx.fillRect(0, game.groundY + 50, canvas.width, canvas.height);
+
+      // Update particles
+      game.particles = game.particles.filter(p => {
+        p.update();
+        p.draw();
+        return p.life > 0;
+      });
+
+      // Player 1 movement
+      if (game.joystick.active && !game.gameOver) {
+        const speed = 3.5;
+        game.player1.x += game.joystick.x * speed;
+        if (game.joystick.x !== 0) game.player1.facing = game.joystick.x > 0 ? 'right' : 'left';
+        game.player1.x = Math.max(60, Math.min(canvas.width - 60, game.player1.x));
+      }
+
+      // AI Player 2
+      if (!game.gameOver) {
+        const diff = game.player1.x - game.player2.x;
+        if (Math.abs(diff) > 110) {
+          game.player2.x += diff > 0 ? 1.8 : -1.8;
+          game.player2.facing = diff > 0 ? 'right' : 'left';
+        }
+
+        // AI attack
+        if (Math.abs(diff) < 100 && Math.random() < 0.025) {
+          game.player2.punching = true;
+          game.player2.punchFrame = 30;
+          punchSound.currentTime = 0;
+          punchSound.play();
+          if (checkHit(game.player2, game.player1)) {
+            game.player1.health = Math.max(0, game.player1.health - 14);
+            createImpact(game.player1.x, game.player1.y, game.player2.facing);
+            updateHealth();
+          }
+        }
+        if (Math.abs(diff) < 110 && Math.random() < 0.018) {
+          game.player2.kicking = true;
+          game.player2.kickFrame = 35;
+          kickSound.currentTime = 0;
+          kickSound.play();
+          if (checkHit(game.player2, game.player1, 110)) {
+            game.player1.health = Math.max(0, game.player1.health - 20);
+            createImpact(game.player1.x, game.player1.y, game.player2.facing);
+            updateHealth();
+          }
+        }
+      }
+
+      // Animation frames
+      if (game.player1.punchFrame > 0) game.player1.punchFrame--;
+      if (game.player1.kickFrame > 0) game.player1.kickFrame--;
+      if (game.player2.punchFrame > 0) game.player2.punchFrame--;
+      if (game.player2.kickFrame > 0) game.player2.kickFrame--;
+
+      // Draw players
+      drawStickman(game.player1, '#2196F3');
+      drawStickman(game.player2, '#F44336');
+
+      // Game over
+      if (game.player1.health <= 0 || game.player2.health <= 0) {
+        if (!game.gameOver) {
+          game.gameOver = true;
+          document.getElementById('winner-text').textContent = 
+            game.player1.health <= 0 ? 'Player 2 Menang!' : 'Player 1 Menang!';
+          document.getElementById('game-over').style.display = 'block';
+        }
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Controls
+    document.getElementById('punch-btn').addEventListener('touchstart', e => {
+      e.preventDefault();
+      if (!game.gameOver && game.player1.punchFrame === 0) {
+        game.player1.punching = true;
+        game.player1.punchFrame = 30;
+        punchSound.currentTime = 0;
+        punchSound.play();
+        if (checkHit(game.player1, game.player2)) {
+          game.player2.health = Math.max(0, game.player2.health - 16);
+          createImpact(game.player2.x, game.player2.y, game.player1.facing);
+          updateHealth();
+        }
+      }
+    });
+
+    document.getElementById('kick-btn').addEventListener('touchstart', e => {
+      e.preventDefault();
+      if (!game.gameOver && game.player1.kickFrame === 0) {
+        game.player1.kicking = true;
+        game.player1.kickFrame = 35;
+        kickSound.currentTime = 0;
+        kickSound.play();
+        if (checkHit(game.player1, game.player2, 110)) {
+          game.player2.health = Math.max(0, game.player2.health - 22);
+          createImpact(game.player2.x, game.player2.y, game.player1.facing);
+          updateHealth();
+        }
+      }
+    });
+
+    // Joystick
+    const joystickBase = document.getElementById('joystick-base');
+    const knob = document.getElementById('joystick-knob');
+    let center = {};
+
+    function getCenter() {
+      const rect = joystickBase.getBoundingClientRect();
+      return { x: rect.left + 55, y: rect.top + 55 };
+    }
+
+    joystickBase.addEventListener('touchstart', e => {
+      e.preventDefault();
+      game.joystick.active = true;
+      center = getCenter();
+    });
+
+    document.addEventListener('touchmove', e => {
+      if (game.joystick.active) {
+        const touch = e.touches[0];
+        const dx = touch.clientX - center.x;
+        const dy = touch.clientY - center.y;
+        const dist = Math.min(40, Math.hypot(dx, dy));
+        const angle = Math.atan2(dy, dx);
+        game.joystick.x = dist * Math.cos(angle) / 40;
+        game.joystick.y = dist * Math.sin(angle) / 40;
+
+        knob.style.left = (50 + dx * 0.8) + 'px';
+        knob.style.top = (50 + dy * 0.8) + 'px';
+      }
+    });
+
+    document.addEventListener('touchend', () => {
+      if (game.joystick.active) {
+        game.joystick.active = false;
+        game.joystick.x = 0;
+        game.joystick.y = 0;
+        knob.style.left = '33px';
+        knob.style.top = '33px';
+      }
+    });
+
+    // Restart
+    document.getElementById('restart-btn').addEventListener('click', () => {
+      game.player1.health = 100;
+      game.player2.health = 100;
+      game.player1.x = 150;
+      game.player2.x = canvas.width - 180;
+      game.player1.punchFrame = game.player1.kickFrame = 0;
+      game.player2.punchFrame = game.player2.kickFrame = 0;
+      game.particles = [];
+      game.gameOver = false;
+      updateHealth();
+      document.getElementById('game-over').style.display = 'none';
+    });
+
+    // Start
+    updateHealth();
+    gameLoop();
+  </script>
+</body>
+</html>
